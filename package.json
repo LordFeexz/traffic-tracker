@@ -1,0 +1,79 @@
+{
+  "name": "traffic-tracker",
+  "version": "0.1.0",
+  "description": "Installable Analytics Package with Adapter Pattern",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./client": {
+      "import": "./dist/client/index.js",
+      "require": "./dist/client/index.cjs"
+    },
+    "./adapters/drizzle": {
+      "import": "./dist/adapters/drizzle/index.js",
+      "require": "./dist/adapters/drizzle/index.cjs"
+    },
+    "./adapters/mongodb": {
+      "import": "./dist/adapters/mongodb/index.js",
+      "require": "./dist/adapters/mongodb/index.cjs"
+    },
+    "./integrations/sveltekit": {
+      "import": "./dist/integrations/sveltekit.js",
+      "require": "./dist/integrations/sveltekit.cjs"
+    },
+    "./integrations/hono": {
+      "import": "./dist/integrations/hono.js",
+      "require": "./dist/integrations/hono.cjs"
+    },
+    "./schema/pg": {
+      "import": "./dist/adapters/drizzle/schema.js",
+      "require": "./dist/adapters/drizzle/schema.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LordFeexz/traffic-tracker.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/LordFeexz/traffic-tracker/issues"
+  },
+  "homepage": "https://github.com/LordFeexz/traffic-tracker#readme",
+  "peerDependencies": {
+    "drizzle-orm": ">=0.30.0",
+    "mongodb": "^6.3.0"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/mongodb": "^4.0.7",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "better-sqlite3": "^11.1.2",
+    "drizzle-orm": "^0.30.0",
+    "hono": "^4.13.5",
+    "husky": "^9.1.7",
+    "jsdom": "^30.0.1",
+    "mongodb": "^6.3.0",
+    "mongodb-memory-server": "^9.1.6",
+    "tsup": "^8.2.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
