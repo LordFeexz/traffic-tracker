@@ -8,7 +8,6 @@ import {
   unique,
   index
 } from 'drizzle-orm/pg-core';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 export const trafficSessions = pgTable(
   'traffic_sessions',
