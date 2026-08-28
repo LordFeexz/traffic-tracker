@@ -11,30 +11,10 @@ export class SqlAnalyticsQueryBuilder {
   buildQueryAll(query: CRangeQueryDTO & CSessionListQueryDTO, range: ResolvedRange): { sql: string; values: any[] } {
     // Collect parameters
     const values: any[] = [];
-    const pushVal = (val: any) => {
+    const p = (val: any) => {
       values.push(val);
-      // SQLite uses ?, Postgres uses $1, etc. But if we execute via Drizzle's sql.raw, 
-      // wait, raw SQL string + bind params in Drizzle: sql.raw allows ? placeholders if passed down,
-      // but the safest cross-platform way when using sql template tag is just using ${val}.
-      // However, we are building a raw string here.
-      // Drizzle's `sql` tagged template does exactly what we need.
-      // Let's just return raw strings with ? for SQLite/MySQL and $1 for PG if needed.
-      // Wait, to keep it simple, we can return the raw SQL with ? placeholders,
-      // but Drizzle requires sql`...` to handle dialects properly for placeholders.
       return '?';
     };
-
-    const siteParam = pushVal(query.site);
-    const fromParam = pushVal(range.from.toISOString());
-    const toParam = pushVal(range.to.toISOString());
-    
-    // Limits and offsets
-    const limitParam = pushVal(query.limit || 50);
-    const sessionLimitParam = pushVal(query.limit || 25);
-    const sessionOffsetParam = pushVal(((query.page || 1) - 1) * (query.limit || 25));
-    
-    const prevFromParam = pushVal(range.prevFrom.toISOString());
-    const prevToParam = pushVal(range.prevTo.toISOString());
 
     const sessionsTable = this.tables.sessions;
     const pageviewsTable = this.tables.pageviews;
@@ -48,32 +28,32 @@ export class SqlAnalyticsQueryBuilder {
         -- Current Range
         fs AS (
           SELECT * FROM ${sessionsTable}
-          WHERE site = ${siteParam} 
+          WHERE site = ${p(query.site)} 
             AND device_type != 'bot'
-            AND started_at >= ${fromParam} 
-            AND started_at < ${toParam}
+            AND started_at >= ${p(range.from.toISOString())} 
+            AND started_at < ${p(range.to.toISOString())}
         ),
         fp AS (
           SELECT * FROM ${pageviewsTable}
-          WHERE site = ${siteParam} 
+          WHERE site = ${p(query.site)} 
             AND device_type != 'bot'
-            AND started_at >= ${fromParam} 
-            AND started_at < ${toParam}
+            AND started_at >= ${p(range.from.toISOString())} 
+            AND started_at < ${p(range.to.toISOString())}
         ),
         -- Previous Range
         p_fs AS (
           SELECT * FROM ${sessionsTable}
-          WHERE site = ${siteParam} 
+          WHERE site = ${p(query.site)} 
             AND device_type != 'bot'
-            AND started_at >= ${prevFromParam} 
-            AND started_at < ${prevToParam}
+            AND started_at >= ${p(range.prevFrom.toISOString())} 
+            AND started_at < ${p(range.prevTo.toISOString())}
         ),
         p_fp AS (
           SELECT * FROM ${pageviewsTable}
-          WHERE site = ${siteParam} 
+          WHERE site = ${p(query.site)} 
             AND device_type != 'bot'
-            AND started_at >= ${prevFromParam} 
-            AND started_at < ${prevToParam}
+            AND started_at >= ${p(range.prevFrom.toISOString())} 
+            AND started_at < ${p(range.prevTo.toISOString())}
         ),
         
         -- Totals
@@ -130,7 +110,7 @@ export class SqlAnalyticsQueryBuilder {
           FROM fp
           GROUP BY path
           ORDER BY pageviews DESC
-          LIMIT ${limitParam}
+          LIMIT ${p(query.limit || 50)}
         ),
         
         -- Entry / Exit
@@ -142,7 +122,7 @@ export class SqlAnalyticsQueryBuilder {
           FROM fs
           GROUP BY entry_path
           ORDER BY sessions DESC
-          LIMIT ${limitParam}
+          LIMIT ${p(query.limit || 50)}
         ),
         exit_pages AS (
           SELECT 
@@ -152,7 +132,7 @@ export class SqlAnalyticsQueryBuilder {
           WHERE exit_path IS NOT NULL
           GROUP BY exit_path
           ORDER BY sessions DESC
-          LIMIT ${limitParam}
+          LIMIT ${p(query.limit || 50)}
         ),
         
         -- Referrers
@@ -173,7 +153,7 @@ export class SqlAnalyticsQueryBuilder {
           WHERE referrer_host IS NOT NULL AND referrer_host != ''
           GROUP BY name
           ORDER BY count DESC
-          LIMIT ${limitParam}
+          LIMIT ${p(query.limit || 50)}
         ),
         
         -- Geo
@@ -186,7 +166,7 @@ export class SqlAnalyticsQueryBuilder {
           WHERE country_code IS NOT NULL AND country_code != ''
           GROUP BY code
           ORDER BY sessions DESC
-          LIMIT ${limitParam}
+          LIMIT ${p(query.limit || 50)}
         ),
         
         -- Tech
@@ -204,7 +184,7 @@ export class SqlAnalyticsQueryBuilder {
         sessions_list AS (
           SELECT * FROM fs
           ORDER BY last_seen_at DESC
-          LIMIT ${sessionLimitParam} OFFSET ${sessionOffsetParam}
+          LIMIT ${p(query.limit || 25)} OFFSET ${p(((query.page || 1) - 1) * (query.limit || 25))}
         ),
         
         -- JSON Packaging
