@@ -42,6 +42,38 @@ describe('Hono Integration', () => {
     expect((res as Response).status).toBe(204);
   });
 
+  it('uses x-real-ip if x-forwarded-for is missing', async () => {
+    const { tracker } = makeTracker();
+    const handler = createHonoTrafficHandler(tracker);
+
+    const res = await handler({
+      req: {
+        text: async () => JSON.stringify(validPayload),
+        header: (name: string) => name === 'x-real-ip' ? '5.6.7.8' : undefined
+      },
+      json: (data: any, status: number) => ({ data, status })
+    } as any);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(204);
+  });
+
+  it('uses default ip if headers are missing', async () => {
+    const { tracker } = makeTracker();
+    const handler = createHonoTrafficHandler(tracker);
+
+    const res = await handler({
+      req: {
+        text: async () => JSON.stringify(validPayload),
+        header: () => undefined
+      },
+      json: (data: any, status: number) => ({ data, status })
+    } as any);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(204);
+  });
+
   it('returns 400 on invalid payload', async () => {
     const { tracker } = makeTracker();
     const handler = createHonoTrafficHandler(tracker);

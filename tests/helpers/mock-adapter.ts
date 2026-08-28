@@ -94,6 +94,17 @@ export function createMockAdapter(): TrafficAdapter & {
     async queryReferrers() { return { byType: [], byHost: [], campaigns: [] }; },
     async queryGeo() { return { countries: [], regions: [], cities: [] }; },
     async queryTech() { return { devices: [], browsers: [], os: [], screenSizes: [] }; },
-    async querySessions() { return { sessions: [], total: 0, page: 1, limit: 10 }; }
+    async querySessions() { return { sessions: [], total: 0, page: 1, limit: 10 }; },
+    async queryAll() { 
+      return {
+        overview: { range: { from: '', to: '', bucket: 'day' }, totals: { sessions: 0, visitors: 0, pageviews: 0, avgSessionDurationMs: 0, pagesPerSession: 0, bounceRate: 0 }, previous: { sessions: 0, visitors: 0, pageviews: 0, avgSessionDurationMs: 0, pagesPerSession: 0, bounceRate: 0 }, timeseries: [] },
+        pages: [],
+        entryExit: { entryPages: [], exitPages: [] },
+        referrers: { byType: [], byHost: [], campaigns: [] },
+        geo: { countries: [], regions: [], cities: [] },
+        tech: { devices: [], browsers: [], os: [], screenSizes: [] },
+        sessions: { sessions: [], total: 0, page: 1, limit: 10 }
+      }; 
+    }
   };
 }

@@ -4,16 +4,17 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    alias: {
-      'traffic-tracker': '/src'
-    },
     coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
       thresholds: {
-        lines: 90,
-        functions: 90,
-        branches: 90,
         statements: 90,
-      }
+        branches: 90,
+        functions: 90,
+        lines: 90
+      },
+      include: ['src/**/*.ts'],
+      exclude: ['src/adapters/sql/schema.ts']
     }
   }
 });

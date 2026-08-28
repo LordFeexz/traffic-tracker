@@ -189,6 +189,16 @@ export interface SessionsPage {
   limit: number;
 }
 
+export interface AllStats {
+  overview: OverviewStats;
+  pages: PageStat[];
+  entryExit: EntryExitStats;
+  referrers: ReferrerStats;
+  geo: GeoStats;
+  tech: TechStats;
+  sessions: SessionsPage;
+}
+
 // Zod schemas for validation
 
 const ConsentModeEnum = z.enum(['full', 'anonymous']);

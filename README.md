@@ -23,7 +23,7 @@ Full documentation is available in the `src/docs/` directory:
 ## Quick Start
 
 ```bash
-npm install traffic-tracker zod
+npm install traffic-tracker
 ```
 
 Check out the [Installation](./src/docs/installation.md) guide to get started.

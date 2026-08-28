@@ -1,8 +1,10 @@
 import type { TrafficAdapter, SessionUpsertData, PageviewUpsertData, TrafficEventInsert } from '../../adapter';
 import type { CRangeQueryDTO, CSessionListQueryDTO, OverviewStats, PageStat, EntryExitStats, ReferrerStats, GeoStats, TechStats, SessionsPage } from '../../types';
 import type { ResolvedRange } from '../../core/range';
-import { sql, eq, and, desc, gte, lt, count, avg, sum } from 'drizzle-orm';
+import { sql, eq, and, desc, gte, lt, count, avg, sum, getTableName } from 'drizzle-orm';
 import { trafficSessions, trafficPageviews, trafficEvents } from './schema';
+import { SqlAnalyticsQueryBuilder } from '../sql/builder';
+import { SqliteDialect, MysqlDialect, PgDialect } from '../sql/dialect';
 
 export interface DrizzleSchemaConfig {
   sessions: any;
@@ -15,7 +17,11 @@ export class DrizzleTrafficAdapter implements TrafficAdapter {
   private pageviews: any;
   private events: any;
 
-  constructor(private db: any, schema?: DrizzleSchemaConfig) {
+  constructor(
+    private db: any, 
+    public dialect: 'pg' | 'mysql' | 'sqlite' = 'pg',
+    schema?: DrizzleSchemaConfig
+  ) {
     this.sessions = schema?.sessions ?? trafficSessions;
     this.pageviews = schema?.pageviews ?? trafficPageviews;
     this.events = schema?.events ?? trafficEvents;
@@ -187,8 +193,6 @@ export class DrizzleTrafficAdapter implements TrafficAdapter {
     // For SQLite, DATE_TRUNC doesn't exist, we'll use a simpler approximation if needed, 
     // but in a real adapter we might need dialect-specific SQL here.
     // Assuming PG for this specific query as an example.
-    
-    let timeFormat = range.bucket === 'hour' ? 'YYYY-MM-DD HH24:00:00' : 'YYYY-MM-DD 00:00:00';
     
     // SQLite doesn't support to_char, so this is a simplified version.
     // A robust adapter would abstract this.
@@ -397,4 +401,151 @@ export class DrizzleTrafficAdapter implements TrafficAdapter {
       }))
     };
   }
+
+  async queryAll(query: CRangeQueryDTO & CSessionListQueryDTO, range: ResolvedRange): Promise<import('../../types').AllStats> {
+    const safeGetTableName = (table: any) => {
+      try {
+        return getTableName(table);
+      } catch(e) {
+        return table.Symbol ? table[Symbol.for('drizzle:Name')] : table._?.name || 'unknown_table';
+      }
+    };
+
+    let sqlDialect: any;
+    if (this.dialect === 'sqlite') {
+      sqlDialect = new SqliteDialect();
+    } else if (this.dialect === 'mysql') {
+      sqlDialect = new MysqlDialect();
+    } else {
+      sqlDialect = new PgDialect();
+    }
+
+    const builder = new SqlAnalyticsQueryBuilder(sqlDialect, {
+      sessions: safeGetTableName(this.sessions),
+      pageviews: safeGetTableName(this.pageviews)
+    });
+
+    const { sql: rawSql, values } = builder.buildQueryAll(query, range);
+    
+    let sqlQuery;
+    if (values.length > 0) {
+       const chunks: any[] = [];
+       const parts = rawSql.split('?');
+       for (let i = 0; i < parts.length; i++) {
+         chunks.push(parts[i]);
+         if (i < values.length) {
+           chunks.push(values[i]);
+         }
+       }
+       const strings = parts;
+       (strings as any).raw = parts;
+       sqlQuery = sql(strings as unknown as TemplateStringsArray, ...values);
+    } else {
+       sqlQuery = sql.raw(rawSql);
+    }
+
+    const res = await (this.db as any).execute(sqlQuery);
+    
+    const rows = this.dialect === 'sqlite' ? res.rows || res : (res.rows || res[0] || res);
+    const row = rows[0] || {};
+
+    const parseJson = (val: any) => {
+        if (!val) return [];
+        if (typeof val === 'string') return JSON.parse(val);
+        return val;
+    };
+
+    const sTotals = parseJson(row.totals);
+    const pTotals = { pageviews: Number(sTotals?.pageviews || 0) };
+    const prevSTotals = parseJson(row.previous);
+
+    const totals = {
+      sessions: Number(sTotals?.sessions || 0),
+      visitors: Number(sTotals?.visitors || 0),
+      pageviews: pTotals.pageviews,
+      avgSessionDurationMs: Number(sTotals?.avgSessionDurationMs || 0),
+      pagesPerSession: Number(sTotals?.sessions || 0) > 0 ? pTotals.pageviews / Number(sTotals?.sessions) : 0,
+      bounceRate: Number(sTotals?.sessions || 0) > 0 ? Number(sTotals?.bounces || 0) / Number(sTotals?.sessions) : 0
+    };
+
+    const previous = {
+      sessions: Number(prevSTotals?.sessions || 0),
+      visitors: Number(prevSTotals?.visitors || 0),
+      pageviews: Number(prevSTotals?.pageviews || 0),
+      avgSessionDurationMs: Number(prevSTotals?.avgSessionDurationMs || 0),
+      pagesPerSession: Number(prevSTotals?.sessions || 0) > 0 ? Number(prevSTotals?.pageviews || 0) / Number(prevSTotals?.sessions) : 0,
+      bounceRate: Number(prevSTotals?.sessions || 0) > 0 ? Number(prevSTotals?.bounces || 0) / Number(prevSTotals?.sessions) : 0
+    };
+
+    const timeseries = parseJson(row.timeseries).map((t: any) => ({
+      ...t,
+      sessions: Number(t.sessions || 0),
+      visitors: Number(t.visitors || 0),
+      pageviews: Number(t.pageviews || 0)
+    }));
+
+    return {
+      overview: {
+        range: { from: range.from.toISOString(), to: range.to.toISOString(), bucket: range.bucket },
+        totals,
+        previous,
+        timeseries
+      },
+      pages: parseJson(row.pages).map((p: any) => ({
+        path: p.path,
+        title: p.title,
+        pageviews: Number(p.pageviews || 0),
+        visitors: Number(p.visitors || 0),
+        exits: Number(p.exits || 0),
+        avgTimeOnPageMs: Number(p.avgTimeOnPageMs || 0),
+        exitRate: Number(p.exitRate || 0)
+      })),
+      entryExit: {
+        entryPages: parseJson(row.entry_pages).map((p: any) => ({
+          path: p.path,
+          sessions: Number(p.sessions || 0),
+          bounceRate: Number(p.bounceRate || 0)
+        })),
+        exitPages: parseJson(row.exit_pages).map((p: any) => ({
+          path: p.path,
+          sessions: Number(p.sessions || 0),
+          exitRate: Number(p.exitRate || 0)
+        }))
+      },
+      referrers: {
+        byType: parseJson(row.ref_type).map((p: any) => ({ name: p.name, count: Number(p.count || 0) })),
+        byHost: parseJson(row.ref_host).map((p: any) => ({ name: p.name, count: Number(p.count || 0) })),
+        campaigns: []
+      },
+      geo: {
+        countries: parseJson(row.geo_countries).map((p: any) => ({
+          code: p.code,
+          name: p.name,
+          sessions: Number(p.sessions || 0),
+          pageviews: Number(p.pageviews || 0)
+        })),
+        regions: [],
+        cities: []
+      },
+      tech: {
+        devices: parseJson(row.tech_devices).map((p: any) => ({ name: p.name, count: Number(p.count || 0) })),
+        browsers: [],
+        os: [],
+        screenSizes: []
+      },
+      sessions: {
+        total: Number(row.total_sessions || 0),
+        page: query.page || 1,
+        limit: query.limit || 10,
+        sessions: parseJson(row.sessions_list).map((s: any) => ({
+          ...s,
+          durationMs: Number(s.durationMs || 0),
+          pageCount: Number(s.pageCount || 0),
+          isBounce: Number(s.pageCount || 0) <= 1,
+          isLive: false
+        }))
+      }
+    };
+  }
+
 }

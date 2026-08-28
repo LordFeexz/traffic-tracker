@@ -30,4 +30,12 @@ describe('geo utils', () => {
     const name = countryName('INVALID_CODE');
     expect(name).toBe('INVALID_CODE');
   });
+
+  it('returns code itself if Intl.DisplayNames returns undefined', () => {
+    const orig = Intl.DisplayNames.prototype.of;
+    Intl.DisplayNames.prototype.of = () => undefined;
+    const name = countryName('TEST');
+    expect(name).toBe('TEST');
+    Intl.DisplayNames.prototype.of = orig;
+  });
 });

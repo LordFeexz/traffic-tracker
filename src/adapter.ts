@@ -7,7 +7,8 @@ import type {
   PageStat, 
   ReferrerStats, 
   SessionsPage, 
-  TechStats 
+  TechStats,
+  AllStats
 } from './types';
 import type { ResolvedRange } from './core/range.js';
 
@@ -121,5 +122,7 @@ export interface TrafficAdapter {
   queryReferrers(query: CRangeQueryDTO, range: ResolvedRange): Promise<ReferrerStats>;
   queryGeo(query: CRangeQueryDTO, range: ResolvedRange): Promise<GeoStats>;
   queryTech(query: CRangeQueryDTO, range: ResolvedRange): Promise<TechStats>;
-  querySessions(query: CSessionListQueryDTO, range: ResolvedRange): Promise<SessionsPage>;
+  querySessions(query: CRangeQueryDTO & CSessionListQueryDTO, range: ResolvedRange): Promise<SessionsPage>;
+
+  queryAll(query: CRangeQueryDTO & CSessionListQueryDTO, range: ResolvedRange): Promise<AllStats>;
 }

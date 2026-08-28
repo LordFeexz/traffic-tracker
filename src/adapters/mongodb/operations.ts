@@ -427,4 +427,284 @@ export class MongoTrafficAdapter implements TrafficAdapter {
       }))
     };
   }
+
+  async queryAll(query: CRangeQueryDTO & CSessionListQueryDTO, range: ResolvedRange): Promise<import('../../types').AllStats> {
+    const formatString = range.bucket === 'hour' ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
+    
+    // We execute two large $facet queries to avoid a single massive Mongo document limit issue
+    // and because we have two different collections (sessions and pageviews)
+    const matchSessions = this.match(query, range);
+    const matchPageviews = this.match(query, range);
+    const matchPrevSessions = this.match(query, { ...range, from: range.prevFrom, to: range.prevTo });
+    const matchPrevPageviews = this.match(query, { ...range, from: range.prevFrom, to: range.prevTo });
+
+    const sessionFacet = {
+      totals: [
+        { 
+          $group: {
+            _id: null,
+            sessions: { $sum: 1 },
+            visitors: { $addToSet: { $ifNull: ["$visitorId", "$ipHash"] } },
+            bounces: { $sum: { $cond: [{ $lte: ["$pageCount", 1] }, 1, 0] } },
+            totalDuration: { $sum: "$durationMs" }
+          }
+        }
+      ],
+      timeseries: [
+        { 
+          $group: {
+            _id: { $dateToString: { format: formatString, date: "$startedAt" } },
+            sessions: { $sum: 1 },
+            visitors: { $addToSet: { $ifNull: ["$visitorId", "$ipHash"] } }
+          }
+        }
+      ],
+      entryPages: [
+        {
+          $group: {
+            _id: "$entryPath",
+            sessions: { $sum: 1 },
+            bounces: { $sum: { $cond: [{ $lte: ["$pageCount", 1] }, 1, 0] } }
+          }
+        },
+        { $sort: { sessions: -1 } },
+        { $limit: query.limit || 50 }
+      ],
+      exitPages: [
+        { $match: { exitPath: { $exists: true, $ne: null } } },
+        {
+          $group: {
+            _id: "$exitPath",
+            sessions: { $sum: 1 }
+          }
+        },
+        { $sort: { sessions: -1 } },
+        { $limit: query.limit || 50 }
+      ],
+      refType: [
+        {
+          $group: {
+            _id: { $ifNull: ["$referrerType", "direct"] },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ],
+      refHost: [
+        { $match: { referrerHost: { $exists: true, $nin: [null, ''] } } },
+        {
+          $group: {
+            _id: "$referrerHost",
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: query.limit || 50 }
+      ],
+      geoCountries: [
+        { $match: { countryCode: { $exists: true, $nin: [null, ''] } } },
+        {
+          $group: {
+            _id: "$countryCode",
+            sessions: { $sum: 1 },
+            pageviews: { $sum: { $cond: [{ $gt: ["$pageCount", 0] }, "$pageCount", 1] } }
+          }
+        },
+        { $sort: { sessions: -1 } },
+        { $limit: query.limit || 50 }
+      ],
+      techDevices: [
+        {
+          $group: {
+            _id: { $ifNull: ["$deviceType", "desktop"] },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]
+    };
+
+    const sessionListFacet = {
+      sessionsList: [
+        { $sort: { lastSeenAt: -1 } },
+        { $skip: ((query.page || 1) - 1) * (query.limit || 25) },
+        { $limit: query.limit || 25 }
+      ],
+      totalCount: [
+        { $count: "count" }
+      ]
+    };
+
+    const pageviewFacet = {
+      totals: [
+        { $count: "pageviews" }
+      ],
+      timeseries: [
+        { 
+          $group: {
+            _id: { $dateToString: { format: formatString, date: "$startedAt" } },
+            pageviews: { $sum: 1 }
+          }
+        }
+      ],
+      pages: [
+        {
+          $group: {
+            _id: "$path",
+            title: { $last: "$title" },
+            pageviews: { $sum: 1 },
+            visitors: { $addToSet: { $ifNull: ["$visitorId", "$ipHash"] } },
+            exits: { $sum: { $cond: ["$isExit", 1, 0] } },
+            totalVisibleMs: { $sum: "$visibleMs" },
+            timedViews: { $sum: { $cond: [{ $gt: ["$visibleMs", 0] }, 1, 0] } }
+          }
+        },
+        { $sort: { pageviews: -1 } },
+        { $limit: query.limit || 50 }
+      ]
+    };
+
+    // Note: To get previous totals we can just run parallel small queries, or add them to the facet if we union (not easy in Mongo).
+    // We will do a Promise.all for the main facets + previous totals
+    const [
+      sessionRes,
+      sessionListRes,
+      pvRes,
+      prevSessionTotals,
+      prevPvTotals
+    ] = await Promise.all([
+      this.sessions.aggregate([{ $match: matchSessions }, { $facet: sessionFacet }]).toArray(),
+      this.sessions.aggregate([{ $match: matchSessions }, { $facet: sessionListFacet }]).toArray(),
+      this.pageviews.aggregate([{ $match: matchPageviews }, { $facet: pageviewFacet }]).toArray(),
+      this.sessions.aggregate([
+        { $match: matchPrevSessions },
+        { 
+          $group: {
+            _id: null,
+            sessions: { $sum: 1 },
+            visitors: { $addToSet: { $ifNull: ["$visitorId", "$ipHash"] } },
+            bounces: { $sum: { $cond: [{ $lte: ["$pageCount", 1] }, 1, 0] } },
+            totalDuration: { $sum: "$durationMs" }
+          }
+        }
+      ]).toArray(),
+      this.pageviews.countDocuments(matchPrevPageviews)
+    ]);
+
+    const s = sessionRes[0];
+    const sList = sessionListRes[0];
+    const p = pvRes[0];
+    
+    const sTotals = s.totals[0] || { sessions: 0, visitors: [], bounces: 0, totalDuration: 0 };
+    const pTotals = p.totals[0] || { pageviews: 0 };
+    const prevSTotals = prevSessionTotals[0] || { sessions: 0, visitors: [], bounces: 0, totalDuration: 0 };
+    const prevPTotals = prevPvTotals || 0;
+
+    const totals = {
+      sessions: sTotals.sessions,
+      visitors: sTotals.visitors.length || 0,
+      pageviews: pTotals.pageviews,
+      avgSessionDurationMs: sTotals.sessions > 0 ? sTotals.totalDuration / sTotals.sessions : 0,
+      pagesPerSession: sTotals.sessions > 0 ? pTotals.pageviews / sTotals.sessions : 0,
+      bounceRate: sTotals.sessions > 0 ? sTotals.bounces / sTotals.sessions : 0
+    };
+
+    const previous = {
+      sessions: prevSTotals.sessions,
+      visitors: prevSTotals.visitors.length || 0,
+      pageviews: prevPTotals,
+      avgSessionDurationMs: prevSTotals.sessions > 0 ? prevSTotals.totalDuration / prevSTotals.sessions : 0,
+      pagesPerSession: prevSTotals.sessions > 0 ? prevPTotals / prevSTotals.sessions : 0,
+      bounceRate: prevSTotals.sessions > 0 ? prevSTotals.bounces / prevSTotals.sessions : 0
+    };
+
+    const pvMap = new Map((p.timeseries || []).map((t: any) => [t._id, t.pageviews]));
+    const timeseries = (s.timeseries || []).map((t: any) => ({
+      t: t._id,
+      sessions: t.sessions,
+      visitors: t.visitors.length || 0,
+      pageviews: pvMap.get(t._id) || 0
+    })).sort((a: any, b: any) => a.t.localeCompare(b.t));
+
+    return {
+      overview: {
+        range: { from: range.from.toISOString(), to: range.to.toISOString(), bucket: range.bucket },
+        totals,
+        previous,
+        timeseries
+      },
+      pages: p.pages.map((r: any) => ({
+        path: r._id,
+        title: r.title,
+        pageviews: r.pageviews,
+        visitors: r.visitors.length,
+        exits: r.exits,
+        avgTimeOnPageMs: r.timedViews > 0 ? r.totalVisibleMs / r.timedViews : 0,
+        exitRate: r.pageviews > 0 ? r.exits / r.pageviews : 0
+      })),
+      entryExit: {
+        entryPages: s.entryPages.map((r: any) => ({
+          path: r._id,
+          sessions: r.sessions,
+          bounceRate: r.sessions > 0 ? r.bounces / r.sessions : 0
+        })),
+        exitPages: s.exitPages.map((r: any) => ({
+          path: r._id,
+          sessions: r.sessions,
+          exitRate: 0
+        }))
+      },
+      referrers: {
+        byType: s.refType.map((r: any) => ({ name: r._id, count: r.count })),
+        byHost: s.refHost.map((r: any) => ({ name: r._id, count: r.count })),
+        campaigns: []
+      },
+      geo: {
+        countries: s.geoCountries.map((r: any) => ({
+          code: r._id,
+          name: r._id,
+          sessions: r.sessions,
+          pageviews: r.pageviews
+        })),
+        regions: [],
+        cities: []
+      },
+      tech: {
+        devices: s.techDevices.map((r: any) => ({ name: r._id, count: r.count })),
+        browsers: [],
+        os: [],
+        screenSizes: []
+      },
+      sessions: {
+        total: sList.totalCount[0]?.count || 0,
+        page: query.page || 1,
+        limit: query.limit || 25,
+        sessions: sList.sessionsList.map((sess: any) => ({
+          sessionId: sess.sessionId,
+          startedAt: sess.startedAt.toISOString(),
+          lastSeenAt: sess.lastSeenAt.toISOString(),
+          endedAt: sess.endedAt?.toISOString(),
+          durationMs: sess.durationMs || 0,
+          pageCount: sess.pageCount || 0,
+          isBounce: (sess.pageCount || 0) <= 1,
+          entryPath: sess.entryPath,
+          exitPath: sess.exitPath,
+          referrerHost: sess.referrerHost,
+          referrerType: sess.referrerType || 'direct',
+          deviceType: sess.deviceType || 'desktop',
+          browser: sess.browser,
+          os: sess.os,
+          screenW: sess.screenW,
+          screenH: sess.screenH,
+          ipTruncated: sess.ipTruncated,
+          countryCode: sess.countryCode,
+          country: sess.country,
+          city: sess.city,
+          isLive: false
+        }))
+      }
+    };
+  }
 }

@@ -71,4 +71,12 @@ describe('TrafficQueryService', () => {
     const res = await service.sessions({ site: 'test', range: '7d', limit: 10, page: 1 });
     expect(res.sessions).toBeInstanceOf(Array);
   });
+
+  it('all delegates to adapter', async () => {
+    const { service } = setup();
+    const res = await service.all({ site: 'test', range: '7d', limit: 10, page: 1 });
+    expect(res.overview).toBeDefined();
+    expect(res.pages).toBeInstanceOf(Array);
+    expect(res.sessions.sessions).toBeInstanceOf(Array);
+  });
 });

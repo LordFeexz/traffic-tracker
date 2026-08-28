@@ -7,7 +7,7 @@ export interface DrizzleAdapterOptions {
 }
 
 export function drizzleAdapter(db: any, options: DrizzleAdapterOptions): TrafficAdapter {
-  return new DrizzleTrafficAdapter(db, options.schema);
+  return new DrizzleTrafficAdapter(db, options.provider, options.schema);
 }
 
 export * from './schema';

@@ -65,6 +65,8 @@ describe('MongoDB Adapter Integration', () => {
     const pvDoc = await db.collection('traffic_pageviews').findOne({ sessionId: 's1', sequence: 1 });
     expect(pvDoc).toBeDefined();
     expect(pvDoc?.path).toBe('/');
+
+    await adapter.upsertSession('s1_exit', { exitPath: '/exit', pageCount: 2, lastSeenAt: new Date() }, { site: 'test', environment: 'production', startedAt: new Date(), entryPath: '/' } as any);
   });
 
   it('queries overview', async () => {
@@ -139,9 +141,36 @@ describe('MongoDB Adapter Integration', () => {
     await adapter.upsertSession('sx_undef', { pageCount: undefined, lastSeenAt: undefined, durationMs: undefined, endedAt: undefined }, { site: 'test' } as any);
   });
 
-  it('queries sessions', async () => {
+  it('queries sessions and queryAll', async () => {
     const res = await adapter.querySessions({ site: 'test', limit: 0, page: 0 } as any, { from: new Date(Date.now() - 100000), to: new Date(), prevFrom: new Date(Date.now() - 200000), prevTo: new Date(Date.now() - 100000), bucket: 'day' });
     expect(res.sessions).toBeDefined();
+
+    const resAll = await adapter.queryAll({ site: 'test', limit: 0, page: 0 } as any, { from: new Date(Date.now() - 100000), to: new Date(), prevFrom: new Date(Date.now() - 200000), prevTo: new Date(Date.now() - 100000), bucket: 'day' });
+    expect(resAll.overview).toBeDefined();
+    expect(resAll.pages).toBeDefined();
+
+    const resAllDefault = await adapter.queryAll({ site: 'test' } as any, { from: new Date(Date.now() - 100000), to: new Date(), prevFrom: new Date(Date.now() - 200000), prevTo: new Date(Date.now() - 100000), bucket: 'hour' });
+    expect(resAllDefault.overview).toBeDefined();
+  });
+
+  it('queries return empty when no data', async () => {
+    const emptyRange = { from: new Date(0), to: new Date(1), prevFrom: new Date(0), prevTo: new Date(1), bucket: 'day' as const };
+    const resOverview = await adapter.queryOverview({ site: 'test' } as any, emptyRange);
+    expect(resOverview.totals.sessions).toBe(0);
+    const resPages = await adapter.queryPages({ site: 'test', limit: 10 } as any, emptyRange);
+    expect(resPages.length).toBe(0);
+    const resEntryExit = await adapter.queryEntryExit({ site: 'test', limit: 10 } as any, emptyRange);
+    expect(resEntryExit.entryPages.length).toBe(0);
+    expect(resEntryExit.exitPages.length).toBe(0);
+    const resReferrers = await adapter.queryReferrers({ site: 'test', limit: 10 } as any, emptyRange);
+    expect(resReferrers.byType.length).toBe(0);
+    const resGeo = await adapter.queryGeo({ site: 'test', limit: 10 } as any, emptyRange);
+    expect(resGeo.countries.length).toBe(0);
+    const resTech = await adapter.queryTech({ site: 'test', limit: 10 } as any, emptyRange);
+    expect(resTech.devices.length).toBe(0);
+    
+    const resAll = await adapter.queryAll({ site: 'test', limit: 10, page: 1 } as any, emptyRange);
+    expect(resAll.overview.totals.sessions).toBe(0);
   });
 
   it('updates endedAt correctly', async () => {

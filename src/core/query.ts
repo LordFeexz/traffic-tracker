@@ -76,4 +76,13 @@ export class TrafficQueryService {
       5
     );
   }
+
+  async all(query: CRangeQueryDTO & CSessionListQueryDTO) {
+    const range = resolveRange(query);
+    return this.cache.getOrSet(
+      this.cacheKey('all', query, range),
+      () => this.adapter.queryAll(query, range),
+      5
+    );
+  }
 }
