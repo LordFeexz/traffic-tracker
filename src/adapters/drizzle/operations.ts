@@ -446,7 +446,19 @@ export class DrizzleTrafficAdapter implements TrafficAdapter {
 
     const res = await (this.db as any).execute(sqlQuery);
     
-    const rows = this.dialect === 'sqlite' ? res.rows || res : (res.rows || res[0] || res);
+    let rows: any[] = [];
+    if (res && res.rows) {
+      rows = res.rows;
+    } else if (Array.isArray(res)) {
+      if (Array.isArray(res[0])) {
+         rows = res[0];
+      } else {
+         rows = res;
+      }
+    } else {
+      rows = [res];
+    }
+    
     const row = rows[0] || {};
 
     const parseJson = (val: any) => {
