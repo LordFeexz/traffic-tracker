@@ -104,7 +104,7 @@ export class SqlAnalyticsQueryBuilder {
             MAX(title) as title,
             COUNT(*) as pageviews,
             COUNT(DISTINCT COALESCE(visitor_id, ip_hash)) as visitors,
-            SUM(CASE WHEN is_exit = 1 THEN 1 ELSE 0 END) as exits,
+            SUM(CASE WHEN is_exit = true THEN 1 ELSE 0 END) as exits,
             SUM(visible_ms) as total_visible_ms,
             SUM(CASE WHEN visible_ms > 0 THEN 1 ELSE 0 END) as timed_views
           FROM fp
