@@ -52,6 +52,7 @@ export interface PageviewEvent extends BaseEvent, PageContext {
 export interface PageExitEvent extends BaseEvent {
   type: 'page_exit';
   path: string;
+  query?: string;
   sequence: number;
   durationMs: number;
   visibleMs: number;
@@ -134,28 +135,34 @@ export interface PageStat {
   exitRate: number;
 }
 
+export interface QueryStat {
+  query: string;
+  pageviews: number;
+  visitors: number;
+}
+
 export interface EntryExitStats {
   entryPages: Array<{ path: string; sessions: number; bounceRate: number }>;
   exitPages: Array<{ path: string; sessions: number; exitRate: number }>;
 }
 
 export interface ReferrerStats {
-  byType: NamedCount[];
-  byHost: NamedCount[];
-  campaigns: Array<{ source?: string; medium?: string; campaign?: string; sessions: number }>;
+  byType: Array<{ name: string; count: number }>;
+  byHost: Array<{ name: string; count: number }>;
+  campaigns: Array<{ name: string; count: number }>;
 }
 
 export interface GeoStats {
   countries: Array<{ code: string; name: string; sessions: number; pageviews: number }>;
-  regions: NamedCount[];
-  cities: NamedCount[];
+  regions: Array<{ code: string; name: string; countryCode: string; sessions: number; pageviews: number }>;
+  cities: Array<{ name: string; countryCode: string; sessions: number; pageviews: number }>;
 }
 
 export interface TechStats {
-  devices: NamedCount[];
-  browsers: NamedCount[];
-  os: NamedCount[];
-  screenSizes: NamedCount[];
+  devices: Array<{ name: string; count: number }>;
+  browsers: Array<{ name: string; count: number }>;
+  os: Array<{ name: string; count: number }>;
+  screenSizes: Array<{ name: string; count: number }>;
 }
 
 export interface SessionRow {
@@ -192,6 +199,7 @@ export interface SessionsPage {
 export interface AllStats {
   overview: OverviewStats;
   pages: PageStat[];
+  queries: QueryStat[];
   entryExit: EntryExitStats;
   referrers: ReferrerStats;
   geo: GeoStats;

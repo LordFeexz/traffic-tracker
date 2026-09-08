@@ -6,7 +6,7 @@ export interface GeoLocation {
 }
 
 export interface GeoProvider {
-  lookup(ip: string): Promise<GeoLocation> | GeoLocation;
+  lookup(ip: string, headers?: Record<string, string> | Headers): Promise<GeoLocation> | GeoLocation;
 }
 
 const DISPLAY_NAMES = new Intl.DisplayNames(['en'], { type: 'region' });

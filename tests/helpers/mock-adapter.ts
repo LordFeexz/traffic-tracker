@@ -103,8 +103,12 @@ export function createMockAdapter(): TrafficAdapter & {
         referrers: { byType: [], byHost: [], campaigns: [] },
         geo: { countries: [], regions: [], cities: [] },
         tech: { devices: [], browsers: [], os: [], screenSizes: [] },
-        sessions: { sessions: [], total: 0, page: 1, limit: 10 }
+        sessions: { sessions: [], total: 0, page: 1, limit: 10 },
+        queries: []
       }; 
+    },
+    async queryQueries() {
+      return [];
     }
   };
 }

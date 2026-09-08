@@ -61,6 +61,26 @@ describe('TrafficCollectService', () => {
     expect(session.visitorId).toBeUndefined();
   });
 
+  it('preserves query param on page_exit', async () => {
+    const payload: CollectPayload = {
+      site: 'test',
+      environment: 'production',
+      consentMode: 'full',
+      sessionId: 's3',
+      events: [
+        { type: 'pageview', ts: 1000, path: '/search', query: '?q=shoes', sequence: 1, referrer: '', viewportW: 800, viewportH: 600 },
+        { type: 'page_exit', ts: 2000, path: '/search', query: '?q=shoes', sequence: 1, durationMs: 1000, visibleMs: 800, maxScrollPct: 50 }
+      ]
+    };
+
+    await service.ingest(payload, baseMeta);
+
+    const pv = adapter.pageviews.get('s3:1')!;
+    expect(pv.path).toBe('/search');
+    expect(pv.query).toBe('?q=shoes'); // Preserved!
+    expect(pv.durationMs).toBe(1000);
+  });
+
   it('updates session duration on page_exit', async () => {
     const payload: CollectPayload = {
       site: 'test',

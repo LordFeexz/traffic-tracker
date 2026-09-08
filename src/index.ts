@@ -26,13 +26,13 @@ export class TrafficTracker {
     this.geo = config.geo;
   }
 
-  async handleCollect(payload: CollectPayload, req: { userAgent?: string; ip?: string }): Promise<void> {
+  async handleCollect(payload: CollectPayload, req: { userAgent?: string; ip?: string; headers?: Record<string, string> | Headers }): Promise<void> {
     const ua = parseUserAgent(req.userAgent);
     let geoLoc: GeoLocation | undefined;
     
     if (this.geo && req.ip) {
       try {
-        geoLoc = await this.geo.lookup(req.ip);
+        geoLoc = await this.geo.lookup(req.ip, req.headers);
       } catch (err) {
         // Silently ignore geo lookup failures
       }

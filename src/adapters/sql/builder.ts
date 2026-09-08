@@ -113,6 +113,19 @@ export class SqlAnalyticsQueryBuilder {
           LIMIT ${p(query.limit || 50)}
         ),
         
+        -- Queries
+        queries AS (
+          SELECT 
+            query,
+            COUNT(*) as pageviews,
+            COUNT(DISTINCT COALESCE(visitor_id, ip_hash)) as visitors
+          FROM fp
+          WHERE query IS NOT NULL AND query != ''
+          GROUP BY query
+          ORDER BY pageviews DESC
+          LIMIT ${p(query.limit || 50)}
+        ),
+        
         -- Entry / Exit
         entry_pages AS (
           SELECT 
@@ -229,6 +242,13 @@ export class SqlAnalyticsQueryBuilder {
             exitRate: 'CASE WHEN pageviews > 0 THEN (CAST(exits AS FLOAT) / pageviews) ELSE 0 END'
           }))} as val FROM pages
         ),
+        json_queries AS (
+          SELECT ${d.jsonAgg(d.jsonObject({
+            query: 'query',
+            pageviews: 'pageviews',
+            visitors: 'visitors'
+          }))} as val FROM queries
+        ),
         json_entry_pages AS (
           SELECT ${d.jsonAgg(d.jsonObject({
             path: 'path',
@@ -300,6 +320,7 @@ export class SqlAnalyticsQueryBuilder {
         (SELECT val FROM json_prev_totals) as previous,
         (SELECT val FROM json_timeseries) as timeseries,
         (SELECT val FROM json_pages) as pages,
+        (SELECT val FROM json_queries) as queries,
         (SELECT val FROM json_entry_pages) as entry_pages,
         (SELECT val FROM json_exit_pages) as exit_pages,
         (SELECT val FROM json_ref_type) as ref_type,

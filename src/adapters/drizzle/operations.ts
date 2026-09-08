@@ -255,6 +255,24 @@ export class DrizzleTrafficAdapter implements TrafficAdapter {
     }));
   }
 
+  async queryQueries(query: CRangeQueryDTO, range: ResolvedRange): Promise<import('../../types').QueryStat[]> {
+    const res = await this.db.select({
+        queryStr: this.pageviews.query,
+        pageviews: count(),
+        visitors: sql<number>`count(distinct coalesce(${this.pageviews.visitorId}, ${this.pageviews.ipHash}))`
+    }).from(this.pageviews)
+      .where(and(this.matchPageviews(query, range.from, range.to), sql`${this.pageviews.query} IS NOT NULL`, sql`${this.pageviews.query} != ''`))
+      .groupBy(this.pageviews.query)
+      .orderBy(desc(count()))
+      .limit(query.limit);
+
+    return res.map((r: any) => ({
+        query: r.queryStr as string,
+        pageviews: Number(r.pageviews),
+        visitors: Number(r.visitors)
+    }));
+  }
+
   async queryEntryExit(query: CRangeQueryDTO, range: ResolvedRange): Promise<EntryExitStats> {
     const entryRes = await this.db.select({
         path: this.sessions.entryPath,
@@ -511,6 +529,11 @@ export class DrizzleTrafficAdapter implements TrafficAdapter {
         exits: Number(p.exits || 0),
         avgTimeOnPageMs: Number(p.avgTimeOnPageMs || 0),
         exitRate: Number(p.exitRate || 0)
+      })),
+      queries: parseJson(row.queries).map((q: any) => ({
+        query: q.query,
+        pageviews: Number(q.pageviews || 0),
+        visitors: Number(q.visitors || 0)
       })),
       entryExit: {
         entryPages: parseJson(row.entry_pages).map((p: any) => ({

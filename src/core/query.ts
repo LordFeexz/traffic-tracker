@@ -31,6 +31,15 @@ export class TrafficQueryService {
     );
   }
 
+  async queries(query: CRangeQueryDTO) {
+    const range = resolveRange(query);
+    return this.cache.getOrSet(
+      this.cacheKey('queries', query, range),
+      () => this.adapter.queryQueries(query, range),
+      45
+    );
+  }
+
   async entryExit(query: CRangeQueryDTO) {
     const range = resolveRange(query);
     return this.cache.getOrSet(

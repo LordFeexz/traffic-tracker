@@ -18,7 +18,8 @@ export function createHonoTrafficHandler(tracker: TrafficTracker) {
 
       tracker.handleCollect(result.data, {
         userAgent,
-        ip: ip.split(',')[0].trim()
+        ip: ip.split(',')[0].trim(),
+        headers: c.req.raw.headers
       });
 
       return new Response(null, { status: 204 });

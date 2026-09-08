@@ -165,6 +165,7 @@ export class TrafficCollectService {
           data: {
             ...shared,
             path: event.path,
+            query: event.query,
             endedAt: new Date(event.ts),
             durationMs: event.durationMs,
             visibleMs: event.visibleMs,

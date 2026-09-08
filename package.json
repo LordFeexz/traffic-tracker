@@ -28,6 +28,14 @@
       "import": "./dist/integrations/hono.js",
       "require": "./dist/integrations/hono.cjs"
     },
+    "./geo/cloudflare": {
+      "import": "./dist/geo/cloudflare.js",
+      "require": "./dist/geo/cloudflare.cjs"
+    },
+    "./geo/geoip-lite": {
+      "import": "./dist/geo/geoip-lite.js",
+      "require": "./dist/geo/geoip-lite.cjs"
+    },
     "./schema/pg": {
       "import": "./dist/adapters/drizzle/schema.js",
       "require": "./dist/adapters/drizzle/schema.cjs"
@@ -58,6 +66,7 @@
     "mongodb": "^6.3.0"
   },
   "dependencies": {
+    "geoip-lite": "^2.0.3",
     "zod": "^3.23.0"
   },
   "devDependencies": {

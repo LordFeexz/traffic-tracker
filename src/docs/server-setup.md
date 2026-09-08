@@ -24,14 +24,24 @@ Create an instance of the tracker in your server codebase.
 ```typescript
 // src/lib/server/traffic.ts
 import { createTrafficTracker, drizzleAdapter } from 'traffic-tracker';
+import { createCloudflareGeoProvider } from 'traffic-tracker/geo/cloudflare';
+// import { createGeoIpLiteProvider } from 'traffic-tracker/geo/geoip-lite';
 import { db } from './db';
 
 // Example: Drizzle ORM
 export const traffic = createTrafficTracker({
   database: drizzleAdapter(db, { provider: 'pg' }),
   internalHosts: ['mywebsite.com', 'localhost'],
+  geo: createCloudflareGeoProvider() // Optional geo provider
 });
 ```
+
+### Geo Providers
+
+Traffic Tracker supports optional Geo Providers to determine the user's location based on their IP or Request Headers.
+
+- **Cloudflare Geo Provider**: If your app runs behind Cloudflare, you can use the `cf-ipcountry` headers automatically by importing `createCloudflareGeoProvider()`.
+- **GeoIp-Lite Provider**: If you need local lookups, install `geoip-lite` (`npm i geoip-lite`) and use `createGeoIpLiteProvider()`.
 
 *Using MongoDB?* See the [MongoDB Adapter Guide](./mongodb-adapter.md) for initialization instructions.
 

@@ -118,6 +118,7 @@ export interface TrafficAdapter {
   
   queryOverview(query: CRangeQueryDTO, range: ResolvedRange): Promise<OverviewStats>;
   queryPages(query: CRangeQueryDTO, range: ResolvedRange): Promise<PageStat[]>;
+  queryQueries(query: CRangeQueryDTO, range: ResolvedRange): Promise<import('./types').QueryStat[]>;
   queryEntryExit(query: CRangeQueryDTO, range: ResolvedRange): Promise<EntryExitStats>;
   queryReferrers(query: CRangeQueryDTO, range: ResolvedRange): Promise<ReferrerStats>;
   queryGeo(query: CRangeQueryDTO, range: ResolvedRange): Promise<GeoStats>;

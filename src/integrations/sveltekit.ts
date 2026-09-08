@@ -26,7 +26,8 @@ export function createSvelteKitTrafficHandler(tracker: TrafficTracker) {
 
       tracker.handleCollect(result.data, {
         userAgent,
-        ip
+        ip,
+        headers: request.headers
       });
 
       return new Response(null, { status: 204 });

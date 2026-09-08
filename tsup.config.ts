@@ -8,11 +8,13 @@ export default defineConfig({
     'src/adapters/drizzle/schema.ts',
     'src/adapters/mongodb/index.ts',
     'src/integrations/sveltekit.ts',
-    'src/integrations/hono.ts'
+    'src/integrations/hono.ts',
+    'src/geo/cloudflare.ts',
+    'src/geo/geoip-lite.ts'
   ],
   format: ['cjs', 'esm'],
   dts: true,
   clean: true,
   sourcemap: true,
-  external: ['drizzle-orm', 'mongodb']
+  external: ['drizzle-orm', 'mongodb', 'geoip-lite']
 });

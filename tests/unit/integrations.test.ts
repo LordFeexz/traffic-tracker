@@ -33,7 +33,8 @@ describe('Hono Integration', () => {
     const res = await handler({
       req: {
         text: async () => JSON.stringify(validPayload),
-        header: (name: string) => name === 'x-forwarded-for' ? '1.2.3.4' : 'TestUA'
+        header: (name: string) => name === 'x-forwarded-for' ? '1.2.3.4' : 'TestUA',
+        raw: { headers: new Headers() }
       },
       json: (data: any, status: number) => ({ data, status })
     } as any);
@@ -49,7 +50,8 @@ describe('Hono Integration', () => {
     const res = await handler({
       req: {
         text: async () => JSON.stringify(validPayload),
-        header: (name: string) => name === 'x-real-ip' ? '5.6.7.8' : undefined
+        header: (name: string) => name === 'x-real-ip' ? '5.6.7.8' : undefined,
+        raw: { headers: new Headers() }
       },
       json: (data: any, status: number) => ({ data, status })
     } as any);
@@ -65,7 +67,8 @@ describe('Hono Integration', () => {
     const res = await handler({
       req: {
         text: async () => JSON.stringify(validPayload),
-        header: () => undefined
+        header: () => undefined,
+        raw: { headers: new Headers() }
       },
       json: (data: any, status: number) => ({ data, status })
     } as any);
@@ -96,7 +99,8 @@ describe('Hono Integration', () => {
     const res = await handler({
       req: {
         text: async () => { throw new Error('Boom'); },
-        header: () => undefined
+        header: () => undefined,
+        raw: { headers: new Headers() }
       },
       json: (data: any, status: number) => ({ data, status })
     } as any);

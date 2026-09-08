@@ -267,6 +267,27 @@ export class MongoTrafficAdapter implements TrafficAdapter {
     }));
   }
 
+  async queryQueries(query: CRangeQueryDTO, range: ResolvedRange): Promise<import('../../types').QueryStat[]> {
+    const res = await this.pageviews.aggregate([
+      { $match: { ...this.match(query, range), query: { $exists: true, $ne: "", $type: "string" } } },
+      {
+        $group: {
+          _id: "$query",
+          pageviews: { $sum: 1 },
+          visitors: { $addToSet: { $ifNull: ["$visitorId", "$ipHash"] } }
+        }
+      },
+      { $sort: { pageviews: -1 } },
+      { $limit: query.limit || 50 }
+    ]).toArray();
+
+    return res.map(r => ({
+      query: r._id as string,
+      pageviews: r.pageviews,
+      visitors: r.visitors.length
+    }));
+  }
+
   async queryEntryExit(query: CRangeQueryDTO, range: ResolvedRange): Promise<EntryExitStats> {
     const entryPages = await this.sessions.aggregate([
       { $match: this.match(query, range) },
@@ -635,6 +656,7 @@ export class MongoTrafficAdapter implements TrafficAdapter {
         previous,
         timeseries
       },
+      queries: await this.queryQueries(query, range),
       pages: p.pages.map((r: any) => ({
         path: r._id,
         title: r.title,
