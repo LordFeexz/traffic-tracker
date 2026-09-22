@@ -7,6 +7,7 @@ export default defineConfig({
     'src/adapters/drizzle/index.ts',
     'src/adapters/drizzle/schema.ts',
     'src/adapters/mongodb/index.ts',
+    'src/adapters/prisma-mongo/index.ts',
     'src/integrations/sveltekit.ts',
     'src/integrations/hono.ts',
     'src/geo/cloudflare.ts',
@@ -16,5 +17,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  external: ['drizzle-orm', 'mongodb', 'geoip-lite']
+  external: ['drizzle-orm', 'mongodb', 'geoip-lite', '@prisma/client']
 });
