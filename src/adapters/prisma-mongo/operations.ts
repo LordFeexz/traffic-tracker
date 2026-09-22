@@ -136,30 +136,26 @@ export class PrismaMongoTrafficAdapter implements TrafficAdapter {
     });
 
     if (typeof this.prisma.$runCommandRaw === 'function' && data.lastSeenAt) {
-      try {
-        await this.prisma.$runCommandRaw({
-          update: 'traffic_sessions',
-          updates: [
-            {
-              q: { sessionId },
-              u: [
-                {
-                  $set: {
-                    durationMs: {
-                      $max: [
-                        0,
-                        { $subtract: [{ $ifNull: ["$endedAt", "$lastSeenAt"] }, "$startedAt"] }
-                      ]
-                    }
+      await this.prisma.$runCommandRaw({
+        update: 'traffic_sessions',
+        updates: [
+          {
+            q: { sessionId },
+            u: [
+              {
+                $set: {
+                  durationMs: {
+                    $max: [
+                      0,
+                      { $subtract: [{ $ifNull: ["$endedAt", "$lastSeenAt"] }, "$startedAt"] }
+                    ]
                   }
                 }
-              ]
-            }
-          ]
-        });
-      } catch {
-        // Fallback silently if $runCommandRaw fails
-      }
+              }
+            ]
+          }
+        ]
+      });
     }
   }
 
