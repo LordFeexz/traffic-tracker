@@ -43,6 +43,19 @@
     "./adapters/prisma-mongo": {
       "import": "./dist/adapters/prisma-mongo/index.js",
       "require": "./dist/adapters/prisma-mongo/index.cjs"
+    },
+    "./schema/prisma-mongo": {
+      "import": "./dist/adapters/prisma-mongo/schema.js",
+      "require": "./dist/adapters/prisma-mongo/schema.cjs"
+    },
+    "./schema/prisma-mongo.prisma": "./dist/adapters/prisma-mongo/schema.prisma",
+    "./realtime/redis": {
+      "import": "./dist/realtime/redis.js",
+      "require": "./dist/realtime/redis.cjs"
+    },
+    "./realtime/memory": {
+      "import": "./dist/realtime/memory.js",
+      "require": "./dist/realtime/memory.cjs"
     }
   },
   "scripts": {

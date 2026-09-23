@@ -1,0 +1,92 @@
+datasource db {
+  provider = "mongodb"
+}
+
+model TrafficSession {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId      String      @unique
+  visitorId      String?
+  userId         String?
+  site           String
+  environment    String      @default("production")
+  consentMode    String      @default("anonymous")
+  startedAt      DateTime
+  lastSeenAt     DateTime
+  endedAt        DateTime?
+  durationMs     Int         @default(0)
+  pageCount      Int         @default(0)
+  entryPath      String
+  entryTitle     String?
+  exitPath       String?
+  exitTitle      String?
+  referrer       String?
+  referrerHost   String?
+  referrerType   String?     @default("direct")
+  utm            TrafficUtm?
+  userAgent      String?
+  browser        String?
+  browserVersion String?
+  os             String?
+  deviceType     String?     @default("desktop")
+  screenW        Int?
+  screenH        Int?
+  viewportW      Int?
+  country        String?
+  region         String?
+  city           String?
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([site, startedAt])
+  @@index([site, lastSeenAt])
+  @@index([site, visitorId])
+  @@index([site, userId])
+  @@map("traffic_sessions")
+}
+
+type TrafficUtm {
+  source   String?
+  medium   String?
+  campaign String?
+  term     String?
+  content  String?
+}
+
+model TrafficPageview {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId    String
+  sequence     Int
+  path         String
+  title        String?
+  startedAt    DateTime
+  endedAt      DateTime?
+  durationMs   Int       @default(0)
+  visibleMs    Int       @default(0)
+  maxScrollPct Int       @default(0)
+  isExit       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([sessionId, sequence])
+  @@index([sessionId])
+  @@index([path])
+  @@index([startedAt])
+  @@map("traffic_pageviews")
+}
+
+model TrafficEvent {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String
+  name      String
+  path      String?
+  props     Json?
+  ts        DateTime
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([name])
+  @@index([ts])
+  @@map("traffic_events")
+}
